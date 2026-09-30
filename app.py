@@ -23,7 +23,6 @@ with tab1:
         zone_manual = st.selectbox("系番号 (1〜19)", list(range(1, 20)), index=11, key="zone_manual")
         
         st.write("---")
-        # デフォルト値は画像にあったクッタリ南の基準点を入れています
         x_input = st.number_input("X座標 (m)", value=-97319.006, format="%.3f")
         y_input = st.number_input("Y座標 (m)", value=-47020.992, format="%.3f")
         z_input = st.number_input("標高 (m)", value=8.467, format="%.3f")
@@ -35,7 +34,6 @@ with tab1:
 
     with col_out:
         if calc_btn:
-            # 座標変換の実行 (XYZ -> 緯度経度)
             epsg_latlon = 6668 # JGD2011
             epsg_xy = 6668 + zone_manual
             transformer = Transformer.from_crs(epsg_xy, epsg_latlon, always_xy=True)
@@ -47,10 +45,15 @@ with tab1:
             geoid = None
             geoid_err = False
             try:
-                url = f"https://vldb.gsi.go.jp/sokuchi/surveycalc/geoid/calcgh/cgi/geoidcalc.pl?outputType=json&lat={lat}&lon={lon}"
-                with urllib.request.urlopen(url) as response:
+                # 修正: パラメータ名を latitude と longitude に変更し、User-Agentを追加
+                url = f"https://vldb.gsi.go.jp/sokuchi/surveycalc/geoid/calcgh/cgi/geoidcalc.pl?outputType=json&latitude={lat}&longitude={lon}"
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+                with urllib.request.urlopen(req) as response:
                     data = json.loads(response.read().decode('utf-8'))
-                    geoid = float(data['OutputData']['geoidHeight'])
+                    if 'OutputData' in data and 'geoidHeight' in data['OutputData']:
+                        geoid = float(data['OutputData']['geoidHeight'])
+                    else:
+                        geoid_err = True
             except Exception as e:
                 geoid_err = True
             
@@ -83,7 +86,7 @@ with tab1:
                     <p style="margin:0;"><b>楕円体高 : </b> {ellipsoid_height:.3f} m</p>
                     <p style="margin:0; font-size:1.1em; color:#d32f2f;"><b>③ 入力高 : </b> {total_height:.3f} m</p>
                     <p style="font-size: 0.85em; color: #555; margin-top:15px;">※ 入力高 ＝ 標高 ＋ ジオイド高 ＋ アンテナ高</p>
-                    <p style="font-size: 0.75em; color: #888;">※ 本ツールのジオイド高は国土地理院API (GSIGEO2011) より取得しています。<br>サーバーの混雑状況等により取得エラーになる場合があります。</p>
+                    <p style="font-size: 0.75em; color: #888;">※ 本ツールのジオイド高は国土地理院API (GSIGEO2011/2024) より取得しています。<br>サーバーの混雑状況等により取得エラーになる場合があります。</p>
                 </div>
                 """, unsafe_allow_html=True)
             else:
